@@ -2,10 +2,15 @@ package jbxcloud
 
 import "net/http"
 import "net/url"
+import "bytes"
+import "mime/multipart"
 import "fmt"
 import "io/ioutil"
 import "encoding/json"
 import "strconv"
+import "os"
+import "io"
+import "path/filepath"
 
 // import "path/filepath"
 // import "mime/multipart"
@@ -317,11 +322,97 @@ func (self *Client) GetAnalysisResults(webid string) (*JoeBoxAnalysisResult, err
 	contentWrapper := struct {
 		Content JoeBoxAnalysisResult `json:"analysis"`
 	}{}
-
 	if err := json.NewDecoder(resp.Body).Decode(&contentWrapper); err != nil {
 		return nil, err
 	}
 
 	return &contentWrapper.Content, nil
 
+}
+
+// Submit a file
+func (self *Client) SubmitFile(file string, systems []string, allowinet bool, useSCAE bool) (string, error) {
+
+	// Make sure at least one system has been chosen
+	if len(systems) == 0 {
+		return "", fmt.Errorf("must choose a system to run analysis on!")
+	}
+
+	// Create file buffer
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+
+	// Add the file
+	f, err := os.Open(file)
+	if err != nil {
+		return "", err
+	}
+	fw, err := w.CreateFormFile("sample", filepath.Base(file))
+	if err != nil {
+		return "", err
+	}
+	if _, err = io.Copy(fw, f); err != nil {
+		return "", err
+	}
+
+	// Add the other fields
+	parameters := map[string]string{
+		"username": self.Username,
+		"password": self.Password,
+		"type":     "file",
+		"tandc":    "1", // Accept terms
+	}
+	for k, v := range parameters {
+		w.WriteField(k, v)
+	}
+
+	// Enable systems
+	for _, system := range systems {
+		w.WriteField(system, "1")
+	}
+
+	// Optional fields
+	if allowinet {
+		w.WriteField("inet", "1")
+	}
+	if useSCAE {
+		w.WriteField("scae", "1")
+	}
+
+	// Close the writer
+	w.Close()
+
+	// Create new request
+	req, err := http.NewRequest("POST", self.Url+"analysis", &b)
+	if err != nil {
+		return "", err
+	}
+	// Set Content-Type
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	// Submit the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	// Catch errors
+	if resp.StatusCode == 403 {
+		return "", fmt.Errorf("HTTP error 403 (Forbidden) for wrong username/password")
+	} else if resp.StatusCode == 503 {
+		return "", fmt.Errorf("HTTP error 503 (Service Unavailable) system is in maintenance mode")
+	} else if resp.StatusCode == 400 {
+		return "", fmt.Errorf("HTTP error 400 (Bad request) for missing parameters or wrong values")
+	}
+
+	// Parse response
+	webidstruct := struct {
+		Webid int `json:"webid"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&webidstruct); err != nil {
+		return "", err
+	}
+
+	return strconv.Itoa(webidstruct.Webid), nil
 }
