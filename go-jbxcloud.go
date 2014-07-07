@@ -54,6 +54,11 @@ func (self *Client) makePost(action string, parameters map[string]string) (*http
 		return nil, fmt.Errorf("HTTP error 503 (Service Unavailable) system is in maintenance mode")
 	}
 
+	// Catch 400 (Bad request)
+	if resp.StatusCode == 400 {
+		return nil, fmt.Errorf("HTTP error 400 (Bad request) for missing parameters or wrong values")
+	}
+
 	return resp, nil
 
 }
@@ -190,7 +195,7 @@ func (self *Client) ListAnalyses() (*[]JoeBoxAnalysis, error) {
 func (self *Client) CheckAnalysis(webid string) (*JoeBoxAnalysis, error) {
 
 	// Perform post request
-	resp, err := self.makePost("analysis/check", map[string]string{"webid": "48284"})
+	resp, err := self.makePost("analysis/check", map[string]string{"webid": webid})
 	if err != nil {
 		return nil, err
 	}
@@ -202,5 +207,26 @@ func (self *Client) CheckAnalysis(webid string) (*JoeBoxAnalysis, error) {
 	}
 
 	return &content, nil
+
+}
+
+// Get analysis results (just json for now)
+func (self *Client) GetAnalysisResults(webid string) (*JoeBoxAnalysis, error) {
+
+	// Perform post request
+	resp, err := self.makePost("analysis/check", map[string]string{"webid": "45106", "type": "json"})
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	content, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(content))
+
+	return nil, nil
 
 }
