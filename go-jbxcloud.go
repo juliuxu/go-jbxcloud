@@ -151,7 +151,7 @@ func (self *Client) GetSize() (int64, error) {
   "runnames": ";;;",
   "yara": "false;false;false;"
 */
-type JoeBoxAnalsis struct {
+type JoeBoxAnalysis struct {
 	Webid      string `json:"webid"`
 	Md5        string `json:"md5"`
 	Filename   string `json:"filename"`
@@ -168,7 +168,7 @@ type JoeBoxAnalsis struct {
 }
 
 // Get a list of analyses
-func (self *Client) ListAnalyses() (*[]JoeBoxAnalsis, error) {
+func (self *Client) ListAnalyses() (*[]JoeBoxAnalysis, error) {
 
 	// Perform post request
 	resp, err := self.makePost("analysis/list", map[string]string{})
@@ -177,7 +177,26 @@ func (self *Client) ListAnalyses() (*[]JoeBoxAnalsis, error) {
 	}
 
 	// Parse response
-	var content []JoeBoxAnalsis
+	var content []JoeBoxAnalysis
+	if err := json.NewDecoder(resp.Body).Decode(&content); err != nil {
+		return nil, err
+	}
+
+	return &content, nil
+
+}
+
+// Check the status of an analysis
+func (self *Client) CheckAnalysis(webid string) (*JoeBoxAnalysis, error) {
+
+	// Perform post request
+	resp, err := self.makePost("analysis/check", map[string]string{"webid": "48284"})
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	content := JoeBoxAnalysis{}
 	if err := json.NewDecoder(resp.Body).Decode(&content); err != nil {
 		return nil, err
 	}
