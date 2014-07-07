@@ -210,23 +210,118 @@ func (self *Client) CheckAnalysis(webid string) (*JoeBoxAnalysis, error) {
 
 }
 
+// Main JoeBox Analysis result struct
+type JoeBoxAnalysisResult struct {
+	GeneralInfo struct {
+		Version    string `json:"version"`
+		Id         int    `json:"id"`
+		Starttime  string `json:"starttime"`
+		Product    string `json:"product"`
+		Startdate  string `json:"startdate"`
+		Duration   string `json:"duration"`
+		Reporttype string `json:"reporttype"`
+		Target     struct {
+			Sample         string `json:"sample"`
+			Cookbook       string `json:"cookbook"`
+			Submissionpath string `json:"submissionpath"`
+		} `json:"target"`
+
+		Systemdescription string `json:"systemdescription"`
+		Arch              string `json:"arch"`
+	} `json:"generalinfo"`
+
+	FileInfo struct {
+		Filetype       string `json:"filetype"`
+		Filename       string `json:"filename"`
+		Submissionpath string `json:"submissionpath"`
+		Filesize       int    `json:"filesize"`
+		Md5            string `json:"md5"`
+		Sha1           string `json:"sha1"`
+		Sha256         string `json:"sha256"`
+		Sha512         string `json:"sha512"`
+	} `json:"fileinfo"`
+
+	// Behavior      struct{} `json:"behavior"`
+
+	SignatureInfo struct {
+		Sig []struct {
+			Impact      string `json:"@impact"`
+			Basedoncode string `json:"@basedoncode"`
+			Id          string `json:"@id"`
+			Desc        string `json:"@desc"`
+			Types       string `json:"@types"`
+
+			// These fields can both be object or array, bad..
+			// Sources     struct {
+			// 	Source struct {
+			// 		Id      string `json:"@id"`
+			// 		Op      string `json:"@op"`
+			// 		Process string `json:"@process"`
+			// 		Dollar  string `json:"$"`
+			// 	} `json:"source"`
+			// } `json:"sources"`
+
+		} `json:"sig"`
+	} `json:"signatureinfo"`
+
+	// PatternInfo   struct{} `json:"patterninfo"`
+
+	SignatureDetections struct {
+		Strategy []struct {
+			Name   string `json:"name"`
+			Count  string `json:"count"`
+			Dollar string `json:"$"`
+		} `json:"strategy"`
+	} `json:"signaturedetections"`
+
+	DroppedInfo struct {
+		Hash []struct {
+			File  string `json:"@file"`
+			Type  string `json:"@type"`
+			Value []struct {
+				Algo   string `json:"@algo"`
+				Dollar string `json:"$"`
+			} `json:"value"`
+		} `json:"hash"`
+	} `json:"droppedinfo"`
+
+	Sigscore struct {
+		Score []struct {
+			Name        string `json:"@name"`
+			Id          string `json:"@id"`
+			Impactlevel string `json:"@impactlevel"`
+			Dollar      string `json:"$"`
+		} `json:"score"`
+	} `json:"sigscore"`
+
+	FuncStats struct {
+		Func []struct {
+			Name   string `json:"@name"`
+			Dollar string `json:"$"`
+		} `json:"func"`
+	} `json:"funcstats"`
+
+	// TODO: More, and more complete
+}
+
 // Get analysis results (just json for now)
-func (self *Client) GetAnalysisResults(webid string) (*JoeBoxAnalysis, error) {
+func (self *Client) GetAnalysisResults(webid string) (*JoeBoxAnalysisResult, error) {
 
 	// Perform post request
-	resp, err := self.makePost("analysis/check", map[string]string{"webid": "45106", "type": "json"})
+	resp, err := self.makePost("analysis/download", map[string]string{"webid": webid, "type": "json"})
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse response
-	content, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
+	contentWrapper := struct {
+		Content JoeBoxAnalysisResult `json:"analysis"`
+	}{}
+
+	if err := json.NewDecoder(resp.Body).Decode(&contentWrapper); err != nil {
 		return nil, err
 	}
-	fmt.Println(string(content))
 
-	return nil, nil
+	return &contentWrapper.Content, nil
 
 }
