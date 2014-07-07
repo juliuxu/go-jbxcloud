@@ -5,6 +5,7 @@ import "net/url"
 import "fmt"
 import "io/ioutil"
 import "encoding/json"
+import "strconv"
 
 // import "path/filepath"
 // import "mime/multipart"
@@ -113,5 +114,74 @@ func (self *Client) GetSystems() (*[]JoeBoxSystem, error) {
 
 // Get the size of the submission queue
 func (self *Client) GetSize() (int64, error) {
-	return 0, nil
+
+	// Perform post request
+	resp, err := self.makePost("queue/size", map[string]string{})
+	if err != nil {
+		return -1, err
+	}
+
+	// Parse response
+	content, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return -1, err
+	}
+
+	size, err := strconv.ParseInt(string(content), 10, 0)
+	if err != nil {
+		return -1, err
+	}
+
+	return size, nil
+}
+
+/*
+  "webid": "48284",
+  "md5": "",
+  "filename": "www.somethingbadasdasd.com\/main.swf",
+  "scriptname": "browseieffchrome.jbs",
+  "time": "1404727472",
+  "status": "finished",
+  "reportid": "45106",
+  "comments": "",
+  "systems": "xp3;xp3;xp3;",
+  "detections": "0;0;0;",
+  "errors": ";;;",
+  "runnames": ";;;",
+  "yara": "false;false;false;"
+*/
+type JoeBoxAnalsis struct {
+	Webid      string `json:"webid"`
+	Md5        string `json:"md5"`
+	Filename   string `json:"filename"`
+	Scriptname string `json:"scriptname"`
+	Time       string `json:"time"`
+	Status     string `json:"status"`
+	ReportId   string `json:"reportid"`
+	Comments   string `json:"comments"`
+	Systems    string `json:"systems"`
+	Detections string `json:"detections"`
+	Errors     string `json:"errors"`
+	Runnames   string `json:"runnames"`
+	Yara       string `json:"yara"`
+}
+
+// Get a list of analyses
+func (self *Client) ListAnalyses() (*[]JoeBoxAnalsis, error) {
+
+	// Perform post request
+	resp, err := self.makePost("analysis/list", map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	var content []JoeBoxAnalsis
+	if err := json.NewDecoder(resp.Body).Decode(&content); err != nil {
+		return nil, err
+	}
+
+	return &content, nil
+
 }
